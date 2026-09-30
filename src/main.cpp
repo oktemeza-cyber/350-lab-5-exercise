@@ -1,9 +1,7 @@
 #include <iostream>
 #include <optional>
 #include <vector>
-#include <functional>
 #include <cmath>
-#include <limits>
 #include <SFML/Graphics.hpp>
 
 const int WINDOW_WIDTH = 800;
@@ -15,26 +13,21 @@ std::function<float(float, float, float)> tween = [](float a, float b, float t) 
     return (1 - t) * a + t * b;
 };
 
-// Point2D derivative(std::vector<sf::Vector2f> f, float x){
-//     float h = sqrt(std::numeric_limits<float>::epsilon());
-//     float result = ((f(x + h) - f(x - h)) / (2.0f * h));
-//     return static_cast<Point2D>(result);
-// }
-
 // TODO: (Part 1) Define a function that samples a cubic Bezier curve at t in [0, 1].
+
 Point2D getPoint(const std::vector<sf::Vector2f>& pts, float t) { 
-        float tween1 = tween(0.0f, 1.0f, t);
-        Point2D position = sf::Vector2f(std::lerp(50.0f, 50.0f + 650.0f, t), std::lerp(WINDOW_HEIGHT - 50.0f, (WINDOW_HEIGHT - 50.0f) - 350.0f, tween1));
-        return position; 
+    float tminus = 1.0f - t;
+    return pts[0] * std::pow(tminus, 3.0f) + pts[1] * (3.0f * std::pow(tminus, 2.0f*t)) + pts[2] * (3.0f * std::pow(tminus, 2.0f*t)) + pts[3] * (std::pow(t, 3.0f));
 }
 
 // TODO: (Part 2) Define a function that returns the curve's slope at t in [0, 1].
 Point2D getSlope(const std::vector<sf::Vector2f>& pts, float t) { 
-
-
-
-    return Point2D{}; 
+    float tminus = 1.0f - t;
+    return (pts[1] - pts[0]) * (3.0f * tminus * tminus) + (pts[2] - pts[1]) * (6.0f * tminus * t) + (pts[3] - pts[2]) * (3.0f * t * t);
 }
+
+//b4(t) = (1 − t)^3 p1 + 3(1 − t)^2t p2 + 3(1 − t)t^2 p3 + t^3 p4 used as reference and 
+// derivative (b4(t)) = 3(1 − t)^2 (p2 − p1) + 6(1 − t)t (p3 − p2) + 3t^2 (p4 − p3)
 
 // TODO: (Part 1) Store four control points for the curve.
 // TODO: (Part 2) Track animation time for the square moving along the curve.
@@ -85,56 +78,38 @@ void handleInput(sf::Window& window, bool& shouldQuit) {
     }
 }
 
+void drawControlPoints(sf::RenderWindow& window, const std::vector<sf::Vector2f>& pts){
+
+    for(const auto& p : pts){
+        sf::CircleShape point(5.0f);
+        point.setOrigin(sf::Vector2f(5.0f, 5.0f));
+        point.setPosition(p);
+        point.setFillColor(sf::Color::Red);
+        window.draw(point);
+    }
+}
+
 void render(sf::RenderWindow& window) {
     window.clear(sf::Color::Black);
 
     static int frames = 0;
-    int framesWanted = 200;
+    int framesWanted = FPS_LIMIT;
     float time = static_cast<float>(frames % framesWanted)/framesWanted;
     float x = tween(0.0f, WINDOW_WIDTH, time);
+    std::vector<sf::Vector2f> controlPoints = { {100.0f, 500.0f}, {200.0f, 100.0f}, {600.0f, 100.0f}, {700.0f, 500.0f}};
     frames++;
-
-    sf::CircleShape shape;
-    shape.setRadius(20);
-    shape.setFillColor(sf::Color::Green);
-    shape.setOrigin(sf::Vector2f(5, 5));
-    shape.setPosition(sf::Vector2(x, WINDOW_HEIGHT/3.0f));
-    window.draw(shape);
-    //draw circle and do animation w/tween
-
-    sf::VertexArray yAxis(sf::PrimitiveType::Lines, 2);
-    yAxis[0].position = sf::Vector2f(50.0f, WINDOW_HEIGHT - 50.0f);
-    yAxis[1].position = sf::Vector2f(50.0f, WINDOW_HEIGHT - 350.0f);
-    yAxis[0].color = sf::Color::White;
-    yAxis[1].color = sf::Color::White;
-    window.draw(yAxis);
-
-    sf::VertexArray xAxis(sf::PrimitiveType::Lines, 2);
-    xAxis[0].position = sf::Vector2f(50.0f, WINDOW_HEIGHT - 50.0f);
-    xAxis[1].position = sf::Vector2f(50.0f + 650.0f, WINDOW_HEIGHT - 50.0f);
-    xAxis[0].color = sf::Color::White;
-    xAxis[1].color = sf::Color::White;
-    window.draw(xAxis);
-    //set up the x and y axis for the graph using a vertex array
 
     int steps = 100;
     sf::VertexArray curve(sf::PrimitiveType::LineStrip, steps + 1);
     for(int i = 0; i <= steps; i++){
         float position = static_cast<float>(i) / steps;
-        float tween1 = tween(0.0f, 1.0f, position);
-        curve[i].position = sf::Vector2f(std::lerp(50.0f, 50.0f + 650.0f, position), std::lerp(WINDOW_HEIGHT - 50.0f, (WINDOW_HEIGHT - 50.0f) - 350.0f, tween1));
+        curve[i].position = getPoint(controlPoints, position);
         curve[i].color = sf::Color::Cyan;
     }
     window.draw(curve);
     //Code from prep
 
-    //dot draw
-    float current = tween(0.0f, 1.0f, time);
-    sf::CircleShape dot(5.0f);
-    dot.setOrigin(sf::Vector2f(5.0f, 5.0f));
-    dot.setPosition(sf::Vector2f(std::lerp(50.0f, 50.0f + 650.0f, time), std::lerp(WINDOW_HEIGHT - 50.0f, (WINDOW_HEIGHT - 50.0f) - 350.0f, current)));
-    dot.setFillColor(sf::Color::Yellow);
-    window.draw(dot);
+    drawControlPoints(window, controlPoints);
     //lerping used in the same context
     
     // ====== ====== ======
